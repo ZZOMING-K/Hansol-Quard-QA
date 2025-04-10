@@ -1,6 +1,6 @@
 import streamlit as st
-from langchain_community.chat_message_histories import StreamlitChatMessageHistory
-from langchain.memory import ConversationBufferMemory # 몇줄 전까지의 대화 내용 기억 
+from langchain_community.chat_message_histories import StreamlitChatMessageHistory # 대회 기록 저장 
+from langchain.memory import ConversationBufferMemory # 이전 대화 기억 
 
 def main() :
     
@@ -18,35 +18,51 @@ def main() :
         human_accident = st.text_input("**✅ 인적사고**", value = "ex) 끼임")
         property_accident = st.text_input("**✅ 물적사고**", value = "ex) 없음")
     
+    
     if "conversation" not in st.session_state : 
         st.session_state.conversation = None 
     
     if "chat_history" not in st.session_state : 
         st.session_state.chat_history = None 
     
+    # 초기 인삿말 출력 
     if 'message' not in st.session_state :
         st.session_state['messages'] = [{"role" : "assistant" , 
                                         "content" : "안녕하세요! 사고 상황을 설명해주시면, 사고 처리에 필요한 정보를 제공해드리겠습니다!"}]
-        
+    
+    # 이전 대화 표시 
     for message in st.session_state.messages : 
         with st.chat_message(message['role']) :
             st.markdown(message['content']) # message의 role에 따라서 content를 markdown으로 출력
             
-    history = StreamlitChatMessageHistory(key = "chat_messages")
+    history = StreamlitChatMessageHistory(key = "chat_messages") # langchain 메모리 설정 
     
-    # chat logic
-    if query := st.chat_input("사고 원인을 알려주세요.") : # 질문창 
-        st.session_state.messages.append({"role" : "user", "content" : query})
+
+    if query := st.chat_input("사고 원인을 알려주세요.") : # 사용자의 메세지를 입력으로 저장 (query)
+        
+        st.session_state.messages.append({"role" : "user", 
+                                          "content" : query}) # 사용자의 입력을 대화에 추가 
         
         with st.chat_message("user") : 
             st.markdown(query)
+            
+        # 사고 정보과 사고원인 결합 
+        combined_query = f"""
+        {query} 로 인해 사고가 발생했습니다. 
+        해당 사고는 {work_process} 중 발생했으며, 관련 사고 객체는 {accident_object} 입니다. 
+        이로 인한 인적피해는 {human_accident} 이고, 물적피해는 {property_accident} 로 확인됩니다.
+        재발 방지 대책 및 향후 조치 계획은 무엇인가요?
+        """
+        
+        # llm 답변을 conversation에 추가 
+        st.session_state.conversation = get_conversation_chain(vectorstore , llm)
         
         with st.chat_message("assistant") : 
             
             chain = st.session_state.conversation
             
             with st.spinner("Thinking...") :
-                result = chain({"question" : query}) # chain을 통해 LLM의 답변이 나오도록 함 
+                result = chain({"question" : combined_query}) # chain을 통해 LLM의 답변이 나오도록 함 
                 response = result["answer"]
                 
                 source_documents = result["source_documents"]
@@ -57,27 +73,15 @@ def main() :
                     for i , doc in enumerate(source_documents) :
                         st.markdown(f"{i}.{doc.metadata['source']}" , help = doc.page_content)
                         
-        st.session_state.messages.append({"role" : "assistant", "content" : response})
-    
+        st.session_state.messages.append({"role" : "assistant", "content" : response}) # 생성된 답변을 history에 추가 
 
-def get_conversation_chain(vector_stotre , retreiver , custom_llm) :
-    
-    llm = custom_llm(tempearture = 0)
-    
-    conversation_chain = ConversationalRetrievalchain.from_llm(
-        llm = llm , 
-        chain_type = "stuff" ,
-        retriever = retriever,
-        return_source_documents = True,
-        memory = ConversationBufferMemory(
-            memory_key = "chat_history", # chat_history의 키 값을 가진 채팅 기록 가져와서 이것을 context에 집어넣어 이전 대화를 기억하게 하기
-            return_messages = True,
-            output_key = "answer"), # 답변만을 history에 저장하겠다.
-        verbose = True,
-        get_chat_history = lambda h : h # 메모리가 들어온 그래도 chat history를 사용하겠다.
-        )
-    
-    return conversation_chain
+
+
+# 입력받은 text로 retreiver 하여 미리 정의된 vector db에서 유사 문서 가져오기.  
+# llm에 유사문서 넣고 llm 답변 generate 하기. 
+# chain 생성하기하여 streamlit 에서 적용하기. 
+
+
     
 if __name__ == "__main__" :
     main()
