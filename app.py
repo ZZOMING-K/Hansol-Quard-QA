@@ -1,6 +1,8 @@
 import streamlit as st
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory # 대회 기록 저장 
 from langchain.memory import ConversationBufferMemory # 이전 대화 기억 
+from dotenv import load_dotenv 
+from langchain_core.messages import AIMessage , HumanMessage
 
 def main() :
     
