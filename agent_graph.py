@@ -2,40 +2,46 @@
 from typing import List
 from typing_extensions import TypedDict
 from langgraph.graph import END, START, StateGraph
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate ,  MessagesPlaceholder
+from generate import generate_response
 from langchain_core.pydantic_v1 import BaseModel, Field
 from preprocessing import prepro_data
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate , MessagesPlaceholder
 from generate import generate_response
 from langchain_community.vectorstores import FAISS
-from embeddings import load_db
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from generate import generate_response
+import os 
 
+####################################################################
+
+# 1. 데이터 로드 
+data = prepro_data("./data/prepro_train.csv")
+
+# 2. 임베딩 모델 로드 (임베딩 파일)
 embedding_model_name = "intfloat/multilingual-e5-large-instruct"
 
 hf_embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name ,
                                         model_kwargs = {"device" : "cuda" , "trust_remote_code" : True} , # cuda, cpu
                                         encode_kwargs = {"normalize_embeddings" : True}) # set True for cosine similarity
 
-# data load 
-data = prepro_data("./data/prepro_train.csv")
+# 3. 벡터 디비 로드 (저장된 벡터 디비 가져오기)
+pdf_db = FAISS.load_local('vectordb/pdf_faiss', 
+                          hf_embeddings,
+                          allow_dangerous_deserialization=True)
+csv_db = FAISS.load_local('vectordb/train_faiss', 
+                          hf_embeddings,
+                          allow_dangerous_deserialization=True)
 
-# vector db load 
-pdf_db = FAISS.load_local('./pdf_faiss', hf_embeddings)
-csv_db = FAISS.load_local('./train_faiss', hf_embeddings)
-
-# retriever & Reranking 
+# 4. retreiver 함수 정의 
 csv_retriever = csv_db.as_retriever(search_kwargs={"k": 5})
 pdf_retriever = pdf_db.as_retriever(search_kwargs={"k": 5})
 
-llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0,
-        google_api_key=os.environ.get('API_KEY')
-    )
+# 5. generate 함수 정의 (generate 파일)
+
+#################################################################
 
 class GraphState(TypedDict) :
   question : str
@@ -46,8 +52,7 @@ class GraphState(TypedDict) :
 
 def transform_pdf_query(state) :
     
-    system = 
-        """
+    system = """
         당신은 건설 안전 분야 전문 쿼리 변환기입니다. 입력된 건설 사고 관련 질문을 안전보건작업지침 문서 벡터 검색에 최적화된 형태로 재작성하는 역할을 합니다.
         """
 
@@ -92,6 +97,7 @@ def generate(state) :
   pdf_docs = state['pdf_docs']
   csv_docs = state['csv_docs']
 
+  rag_chain = generate_response(pdf_docs, csv_docs, question)
   generation = rag_chain.invoke({"pdf_docs": pdf_docs, "csv_docs" : csv_docs ,"question": question})
 
   return {"pdf_docs" : pdf_docs , "csv_docs" : csv_docs , "question" : question , "generation" : generation}
@@ -164,4 +170,4 @@ workflow.add_edge("grade_documents" , "generate")
 workflow.add_edge("generate" , END)
 
 # Compile
-app = workflow.compile()
+graph = workflow.compile()

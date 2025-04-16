@@ -1,16 +1,8 @@
 import os 
-from dotenv import load_dotenv
 import streamlit as st
-from dotenv import load_dotenv 
 from langchain_core.messages import AIMessage , HumanMessage
-
 from agent_graph import graph 
-from langchain_community.chat_message_histories import StreamlitChatMessageHistory # 대회 기록 저장 
-from langchain.memory import ConversationBufferMemory # 이전 대화 기억 
-from dotenv import load_dotenv 
-from langchain_core.messages import AIMessage , HumanMessage
 
-load_dotenv()
 
 def main() : 
     
@@ -44,7 +36,6 @@ def main() :
     # 사용자 입력 처리 
     if prompt := st.chat_input("사고 원인을 설명해주세요.") : 
         st.session_state.messages.append(HumanMessage(content = prompt)) 
-        st.chat_message("user").write(prompt)
         
         # 사고 정보와 결합 
         combined_prompt = f"""
@@ -53,6 +44,8 @@ def main() :
         이로 인한 인적피해는 {human_accident} 이고, 물적피해는 {property_accident} 로 확인됩니다.
         재발 방지 대책 및 향후 조치 계획은 무엇인가요?
         """
+        
+        st.chat_message("user").write(combined_prompt)
 
         # AI 응답처리 
         with st.chat_message("assistant") : 
@@ -72,16 +65,15 @@ def main() :
                     # 현재 단계 표시(node_name : 노드 이름 , state : 노드 결과값 )
                     for node_name , state in step.items() : 
                         
-                        if "retrieve" in state : 
-                            with st.expander("🔍 예시 검색 결과") : 
+                        if node_name == "retrieve": 
+                            with st.expander("👷🏼 예시 검색 결과") : 
                                 for i , result in enumerate(state["csv_docs"]) :
                                     st.write(f"Source {i} : {result}")
                         
-                        if "grade_documents" in state :  # 필터링 된 pdf 문서 
-                            with st.expander("🔍 PDF 검색 결과") : 
+                        if node_name == "grade_documents":  # 필터링 된 pdf 문서 
+                            with st.expander("🔍 PDF 검색 결과") :
                                 for i , result in enumerate(state["pdf_docs"]) :
                                     st.write(f"Source {i} : {result}") 
-                        
                         
                         if "generation" in state :
                             last_msg = state["generation"]
@@ -93,10 +85,19 @@ def main() :
 
     # 채팅 기록 초기화 버튼 
     if st.button("대화 기록 지우기") : 
+        
         st.session_state.messages = [
             AIMessage(content = "안녕하세요! 건설사고 대응책 AI 어시스턴트입니다. 사고 상황에 대해 설명해주세요! ")
         ]
-        st.rerun() # 페이지 새로고침
+        
+        # 사이드바 입력값 초기화
+        keys_to_clear = ["work_process", "accident_object", "human_accident", "property_accident"]
+        
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]  
+                
+        st.rerun() # 페이지 새로고침 
     
     
 if __name__ == "__main__" :
