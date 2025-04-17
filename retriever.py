@@ -1,5 +1,4 @@
 from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
-
 from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
