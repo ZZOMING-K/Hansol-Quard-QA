@@ -17,39 +17,17 @@ from generate import generate_response
 import os 
 
 
-pdf_retriever , csv_retriever = get_retriever(pdf_db , qa_db , k = 3 , pdf_docs , csv_docs)
+data = prepro_data(path './ddata/prepro_data.csv') # data load 
 
-# 1. 데이터 로드 
-data = prepro_data("./data/prepro_train.csv")
+pdf_retriever , csv_retriever = get_retriever(pdf_db , qa_db , k = 3 , pdf_dataset , csv_dataset) #retriever load 
 
-# 2. 임베딩 모델 로드 (임베딩 파일)
-embedding_model_name = "intfloat/multilingual-e5-large-instruct"
-
-hf_embeddings = HuggingFaceEmbeddings(model_name=embedding_model_name ,
-                                        model_kwargs = {"device" : "cuda" , "trust_remote_code" : True} , # cuda, cpu
-                                        encode_kwargs = {"normalize_embeddings" : True}) # set True for cosine similarity
-
-# 3. 벡터 디비 로드 (저장된 벡터 디비 가져오기)
-pdf_db = FAISS.load_local('vectordb/pdf_faiss', 
-                          hf_embeddings,
-                          allow_dangerous_deserialization=True)
-csv_db = FAISS.load_local('vectordb/train_faiss', 
-                          hf_embeddings,
-                          allow_dangerous_deserialization=True)
-
-# 4. retreiver 함수 정의 
-pdf_retriever , csv_retriever = get_retriever(pdf_db , qa_db , k = 3 , pdf_dataset , csv_dataset)
-
-# 5. generate 함수 정의 (generate 파일)
-
-#################################################################
 
 class GraphState(TypedDict) :
-  question : str
-  pdf_question : str
-  generation : str
-  pdf_docs : List[str]
-  csv_docs : List[str]
+    question : str
+    pdf_question : str
+    generation : str
+    pdf_docs : List[str]
+    csv_docs : List[str]
 
 def transform_pdf_query(state) :
     
@@ -101,17 +79,17 @@ def retrieve(state) :
 
 def generate(state) :
 
-  print("--GENERATE--")
+    print("--GENERATE--")
 
-  question = state['question']
+    question = state['question']
 
-  pdf_docs = state['pdf_docs']
-  csv_docs = state['csv_docs']
+    pdf_docs = state['pdf_docs']
+    csv_docs = state['csv_docs']
 
-  rag_chain = generate_response(pdf_docs, csv_docs, question)
-  generation = rag_chain.invoke({"pdf_docs": pdf_docs, "csv_docs" : csv_docs ,"question": question})
+    rag_chain = generate_response(pdf_docs, csv_docs, question)
+    generation = rag_chain.invoke({"pdf_docs": pdf_docs, "csv_docs" : csv_docs ,"question": question})
 
-  return {"pdf_docs" : pdf_docs , "csv_docs" : csv_docs , "question" : question , "generation" : generation}
+    return {"pdf_docs" : pdf_docs , "csv_docs" : csv_docs , "question" : question , "generation" : generation}
 
 def grade_documents(state) :
     
