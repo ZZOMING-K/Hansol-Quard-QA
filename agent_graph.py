@@ -12,10 +12,12 @@ from langchain_core.output_parsers import StrOutputParser
 from generate import generate_response
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+from retriever import get_retriever
 from generate import generate_response
 import os 
 
-####################################################################
+
+pdf_retriever , csv_retriever = get_retriever(pdf_db , qa_db , k = 3 , pdf_docs , csv_docs)
 
 # 1. 데이터 로드 
 data = prepro_data("./data/prepro_train.csv")
@@ -36,8 +38,7 @@ csv_db = FAISS.load_local('vectordb/train_faiss',
                           allow_dangerous_deserialization=True)
 
 # 4. retreiver 함수 정의 
-csv_retriever = csv_db.as_retriever(search_kwargs={"k": 5})
-pdf_retriever = pdf_db.as_retriever(search_kwargs={"k": 5})
+pdf_retriever , csv_retriever = get_retriever(pdf_db , qa_db , k = 3 , pdf_dataset , csv_dataset)
 
 # 5. generate 함수 정의 (generate 파일)
 
@@ -78,15 +79,25 @@ def transform_pdf_query(state) :
 
 def retrieve(state) :
 
-  print("--RETRIEVE--")
+    print("--RETRIEVE--")
 
-  csv_question = state['question'] # origin question
-  pdf_question = state['pdf_question'] # 재작성된 쿼리
+    csv_question = state['question'] # origin question
+    pdf_question = state['pdf_question'] # 재작성된 쿼리
 
-  csv_docs = csv_retriever.get_relevant_documents(csv_question)
-  pdf_docs = pdf_retriever.get_relevant_documents(pdf_question)
+    csv_docs = csv_retriever.invoke(csv_question)
+    pdf_docs = pdf_retriever.invoke(pdf_question)
+    
+    example_prompt = []
+    
+    for i , doc in enumeerate(csv_docs) :
+        
+        context = doc.page_content
+        question = doc.metadata['question']
+        answer = doc.metadata['answer']
+      
+        example_prompt.append(f'question:{context} {question}\nanswer:{answer}\n\n')
 
-  return {"pdf_docs" : pdf_docs , "csv_docs" : csv_docs , "question" : csv_question , "pdf_question" : pdf_question}
+  return {"pdf_docs" : pdf_docs , "csv_docs" : example_prompt , "question" : csv_question , "pdf_question" : pdf_question}
 
 def generate(state) :
 

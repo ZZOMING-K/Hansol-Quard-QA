@@ -1,8 +1,8 @@
-from kiwipiepy import Kiwi
+from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-from langchain.retrievers import ContextualCompressionRetriever, EnsembleRetriever
+from kiwipiepy import Kiwi
 
 def get_retriever(markdb, qadb, k, docs, dataset_docs):
 
@@ -44,7 +44,6 @@ def get_retriever(markdb, qadb, k, docs, dataset_docs):
 
     final_doc_retriever = ContextualCompressionRetriever(base_compressor=compressor,
                                                          base_retriever=ensemble_pdf_retriever)
-    
     final_qa_retriever = ContextualCompressionRetriever(base_compressor=compressor,
                                                         base_retriever=ensemble_qa_retriever)
 
