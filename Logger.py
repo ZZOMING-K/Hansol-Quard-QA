@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 
 class Logger :
-    
     def __init__(self):
         self.logger = logging.getLogger('MyLogger')
         self.log_filename = f'log_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log'
