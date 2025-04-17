@@ -1,25 +1,34 @@
-# state 정의 하기
+import os 
 from typing import List
 from typing_extensions import TypedDict
 from langgraph.graph import END, START, StateGraph
 from langchain_core.prompts import ChatPromptTemplate ,  MessagesPlaceholder
-from generate import generate_response
 from langchain_core.pydantic_v1 import BaseModel, Field
-from preprocessing import prepro_data
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
-from generate import generate_response
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
+
+from preprocessing import prepro_data
 from retriever import get_retriever
+from embedding import load_embedding_model , load_vector_db , load_pdf_docs , load_csv_docs
 from generate import generate_response
-import os 
 
 
-data = prepro_data(path './ddata/prepro_data.csv') # data load 
+# data load 
+data = prepro_data(path = './data/prepro_data.csv') 
 
-pdf_retriever , csv_retriever = get_retriever(pdf_db , qa_db , k = 3 , pdf_dataset , csv_dataset) #retriever load 
+# pdf_docs , csv_docs 
+csv_dataset = load_csv_docs(data = data)
+pdf_dataset = load_pdf_docs(pdf_path = './pdf2txt/')
+
+
+# embedding model
+hf_embeddings = load_embedding_model(model_name = "intfloat/multilingual-e5-large") 
+
+# vector db 
+pdf_db , qa_db = load_vector_db(hf_embeddings) 
+
+# retriever  
+pdf_retriever , csv_retriever = get_retriever(pdf_db , qa_db , k = 3 , pdf_dataset , csv_dataset) 
 
 
 class GraphState(TypedDict) :
@@ -86,7 +95,8 @@ def generate(state) :
     pdf_docs = state['pdf_docs']
     csv_docs = state['csv_docs']
 
-    rag_chain = generate_response(pdf_docs, csv_docs, question)
+    rag_chain = generate_response(pdf_docs, csv_docs, question) 
+    
     generation = rag_chain.invoke({"pdf_docs": pdf_docs, "csv_docs" : csv_docs ,"question": question})
 
     return {"pdf_docs" : pdf_docs , "csv_docs" : csv_docs , "question" : question , "generation" : generation}

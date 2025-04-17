@@ -77,3 +77,6 @@ def prepro_data(path) :
     data = data.drop_duplicates().reset_index(drop = True)
 
     return data 
+
+
+    
